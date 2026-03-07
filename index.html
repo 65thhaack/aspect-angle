@@ -1,0 +1,1340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Aspect Angle — Cockpit View</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #050a0f;
+    color: #00ff88;
+    font-family: 'Share Tech Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    overflow-x: hidden;
+  }
+
+  h1 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.4rem;
+    font-weight: 900;
+    letter-spacing: 0.3em;
+    color: #00ff88;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+    text-shadow: 0 0 20px #00ff8888;
+  }
+
+  .subtitle {
+    font-size: 0.85rem;
+    color: #00ff88aa;
+    letter-spacing: 0.2em;
+    margin-bottom: 16px;
+  }
+
+  .slider-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 10px;
+    width: 100%;
+    max-width: 1400px;
+  }
+
+  .angle-display {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.8rem;
+    font-weight: 900;
+    color: #00ff88;
+    text-shadow: 0 0 30px #00ff88cc;
+    letter-spacing: 0.05em;
+  }
+
+  .angle-label {
+    font-size: 0.85rem;
+    color: #00ff88cc;
+    letter-spacing: 0.15em;
+  }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    width: min(700px, 90vw);
+    height: 4px;
+    background: linear-gradient(to right, #00ff88 var(--pct, 0%), #1a3a2a var(--pct, 0%));
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #00ff88;
+    box-shadow: 0 0 12px #00ff88cc;
+    cursor: pointer;
+  }
+
+  input[type=range].blue-slider {
+    background: linear-gradient(to right, #44aaff var(--pct, 50%), #0a1a2a var(--pct, 50%));
+  }
+
+  input[type=range].blue-slider::-webkit-slider-thumb {
+    background: #44aaff;
+    box-shadow: 0 0 12px #44aaffcc;
+  }
+
+  .tick-row {
+    display: flex;
+    justify-content: space-between;
+    width: min(700px, 90vw);
+    font-size: 0.75rem;
+    color: #00ff88aa;
+    letter-spacing: 0.1em;
+  }
+
+  /* HUD Frame */
+  .hud-wrapper {
+    position: relative;
+    width: 100%;
+  }
+
+  .views-row {
+    display: flex;
+    gap: 12px;
+    width: 100%;
+    max-width: 1400px;
+    align-items: stretch;
+  }
+
+  .view-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .view-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.8rem;
+    letter-spacing: 0.2em;
+    color: #00ff88bb;
+    text-align: center;
+  }
+
+  canvas { width: 100%; aspect-ratio: 1/1; display: block; border: 1px solid #00ff8844; border-radius: 4px; background: #000d06; }
+  #topCanvas { background: #00050a; max-height: 480px; }
+
+  .info-box {
+    margin-top: 12px;
+    width: 100%;
+    max-width: 1400px;
+    border: 1px solid #00ff8840;
+    padding: 12px 18px;
+    border-radius: 4px;
+    background: #001a0a;
+    font-size: 0.9rem;
+    line-height: 1.7;
+    color: #00ee77;
+    min-height: 44px;
+  }
+
+  .side-indicator {
+    display: flex;
+    gap: 16px;
+    margin-top: 12px;
+    justify-content: center;
+  }
+
+  .side-btn {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    padding: 6px 18px;
+    border: 1px solid #00ff8840;
+    background: transparent;
+    color: #00ff8888;
+    cursor: pointer;
+    transition: all 0.15s;
+    border-radius: 2px;
+  }
+
+  .side-btn.active {
+    background: #00ff8818;
+    border-color: #00ff88;
+    color: #00ff88;
+    box-shadow: 0 0 10px #00ff8844;
+  }
+
+  .info-box .label {
+    color: #00ff88;
+    font-weight: bold;
+  }
+
+  .corner-deco {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border-color: #00ff8866;
+    border-style: solid;
+  }
+  .corner-deco.tl { top: 0; left: 0; border-width: 1px 0 0 1px; }
+  .corner-deco.tr { top: 0; right: 0; border-width: 1px 1px 0 0; }
+  .corner-deco.bl { bottom: 0; left: 0; border-width: 0 0 1px 1px; }
+  .corner-deco.br { bottom: 0; right: 0; border-width: 0 1px 1px 0; }
+</style>
+</head>
+<body>
+
+<h1>Aspect Angle</h1>
+<div class="subtitle">COCKPIT PERSPECTIVE — BANDIT AT 6000 FT</div>
+
+<div class="slider-section" style="margin-bottom:6px;">
+  <div style="display:flex; align-items:center; gap:20px;">
+    <div style="text-align:center;">
+      <div class="angle-display" id="angleDisplay">0R</div>
+      <div class="angle-label">ASPECT ANGLE</div>
+    </div>
+  </div>
+</div>
+
+<!-- 3-column layout: left=bandit col, center=top-down, right=ownship col -->
+<div style="display:flex; gap:12px; width:100%; max-width:1400px; align-items:flex-start;">
+
+  <!-- LEFT COLUMN: Bandit heading dial + cockpit canvas + pitch slider (vertical, right of canvas) -->
+  <div style="display:flex; flex-direction:column; align-items:center; gap:6px; width:260px; flex-shrink:0;">
+    <div class="angle-label" style="color:#00ff88cc;">BANDIT HEADING</div>
+    <canvas id="banditDial" width="110" height="110" style="cursor:pointer; width:110px; height:110px; border:none; background:transparent; aspect-ratio:unset;"></canvas>
+    <div id="headingDisplay" style="font-family:'Orbitron',sans-serif;font-size:1.2rem;font-weight:900;color:#00ff88;text-shadow:0 0 20px #00ff88cc;">180°</div>
+    <div class="view-label" style="margin-top:4px;">COCKPIT VIEW</div>
+    <!-- Cockpit canvas + vertical pitch slider side by side -->
+    <div style="display:flex; align-items:stretch; gap:8px; width:100%;">
+      <div class="hud-wrapper" style="flex:1;">
+        <div class="corner-deco tl"></div>
+        <div class="corner-deco tr"></div>
+        <div class="corner-deco bl"></div>
+        <div class="corner-deco br"></div>
+        <canvas id="hudCanvas"></canvas>
+      </div>
+      <!-- Vertical pitch slider -->
+      <div style="display:flex; flex-direction:column; align-items:center; justify-content:space-between; gap:4px; padding:4px 0;">
+        <span style="font-size:0.72rem; color:#00ff88aa; letter-spacing:0.05em;">+60°</span>
+        <span id="pitchDisplay" style="font-family:'Orbitron',sans-serif;font-size:0.85rem;font-weight:900;color:#00ff88;text-shadow:0 0 16px #00ff88cc;">0°</span>
+        <input type="range" id="pitchSlider" min="-60" max="60" value="0" step="1"
+          style="writing-mode:vertical-lr; -webkit-appearance:slider-vertical; width:18px; height:160px; cursor:pointer; background:transparent; outline:none; accent-color:#00ff88;">
+        <span style="font-size:0.72rem; color:#00ff88aa; letter-spacing:0.05em;">-60°</span>
+        <span class="angle-label" style="font-size:0.7rem;">PITCH</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- CENTER COLUMN: Top-down canvas with horizontal position sliders -->
+  <div style="display:flex; flex-direction:column; align-items:center; gap:6px; flex:1; min-width:0;">
+    <div class="view-label">TOP-DOWN VIEW</div>
+
+    <!-- Bandit horizontal position — top -->
+    <div style="display:flex; align-items:center; gap:8px; width:100%; padding:0 4px;">
+      <span style="font-family:'Share Tech Mono',monospace; font-size:0.85rem; color:#00ff88cc; white-space:nowrap;">◀ BANDIT ▶</span>
+      <input type="range" id="banditPosSlider" min="-300" max="300" value="0" step="1"
+        style="flex:1; accent-color:#00ff88;">
+    </div>
+
+    <div class="hud-wrapper" style="width:100%;">
+      <div class="corner-deco tl"></div>
+      <div class="corner-deco tr"></div>
+      <div class="corner-deco bl"></div>
+      <div class="corner-deco br"></div>
+      <canvas id="topCanvas"></canvas>
+    </div>
+
+    <!-- Ownship horizontal position — bottom -->
+    <div style="display:flex; align-items:center; gap:8px; width:100%; padding:0 4px;">
+      <span style="font-family:'Share Tech Mono',monospace; font-size:0.85rem; color:#44aaffcc; white-space:nowrap;">◀ OWNSHIP ▶</span>
+      <input type="range" id="myPosSlider" min="-300" max="300" value="0" step="1"
+        class="blue-slider" style="flex:1;">
+    </div>
+  </div>
+
+  <!-- RIGHT COLUMN: Ownship heading dial only -->
+  <div style="display:flex; flex-direction:column; align-items:center; gap:6px; width:220px; flex-shrink:0;">
+    <div class="angle-label" style="color:#44aaffcc;">MY HEADING</div>
+    <canvas id="myDial" width="110" height="110" style="cursor:pointer; width:110px; height:110px; border:none; background:transparent; aspect-ratio:unset;"></canvas>
+    <div id="myHeadingDisplay" style="font-family:'Orbitron',sans-serif;font-size:1.2rem;font-weight:900;color:#44aaff;text-shadow:0 0 20px #44aaffcc;">0°</div>
+  </div>
+
+</div>
+
+<div class="info-box" id="infoBox"></div>
+
+<script>
+const canvas = document.getElementById('hudCanvas');
+const ctx = canvas.getContext('2d');
+const topCanvas = document.getElementById('topCanvas');
+const tctx = topCanvas.getContext('2d');
+const slider = document.getElementById('slider');
+const angleDisplay = document.getElementById('angleDisplay');
+const infoBox = document.getElementById('infoBox');
+
+let banditHeading = 180;
+let banditPos = 0;
+let banditYPos = 0;     // bandit vertical offset -100 to +100
+let myPos = 0;
+let myYPos = 0;         // ownship vertical offset -100 to +100
+let myHeading = 0;
+let currentPitch = 0;
+let currentAngle = 0;
+let side = 'L';
+
+function getBanditOwnshipGeometry() {
+  const banX =  banditPos / 300 * 0.88;
+  const banY = -0.60 + (banditYPos / 100) * 0.35;
+  const myX  =  myPos   / 300 * 0.88;
+  const myY  =  0.0    + (myYPos   / 100) * 0.35;
+  return { banX, banY, myX, myY };
+}
+
+function getBanditAspectFromHeading() {
+  const { banX, banY, myX, myY } = getBanditOwnshipGeometry();
+
+  // LOS from bandit to ownship in the same 2D frame used by top-down.
+  const losDX = myX - banX;
+  const losDY = myY - banY;
+
+  // Tail vector from heading (0 = north, 90 = east in canvas coords).
+  const headRad = banditHeading * Math.PI / 180;
+  const tailVX  = -Math.sin(headRad);
+  const tailVY  =  Math.cos(headRad);
+
+  const cross = tailVX * losDY - tailVY * losDX;
+  const dot   = tailVX * losDX + tailVY * losDY;
+  const signedDeg = Math.atan2(cross, dot) * 180 / Math.PI;
+
+  return {
+    signedDeg,
+    angle: Math.abs(signedDeg),
+    side: signedDeg >= 0 ? 'R' : 'L',
+  };
+}
+
+function computeAA() {
+  const aspect = getBanditAspectFromHeading();
+  side = aspect.side;
+  currentAngle = Math.round(aspect.angle);
+
+  document.getElementById('angleDisplay').textContent = fmt(currentAngle) + side;
+}
+
+function setSide(s) {
+  // kept for compatibility but no longer used by buttons
+}
+
+// Display convention: divide by 10, drop trailing zero. 150→15, 40→4, 90→9
+function fmt(angle) {
+  const v = Math.round(angle / 10);
+  return v === 0 ? '0' : String(v);
+}
+
+// ── COMPASS DIALS ──────────────────────────────────────────────────────────
+function drawDial(canvasEl, heading, color) {
+  const dc = canvasEl.getContext('2d');
+  const W = canvasEl.width;
+  const H = canvasEl.height;
+  const cx = W / 2, cy = H / 2;
+  const R = W / 2 - 4;
+
+  dc.clearRect(0, 0, W, H);
+
+  // Background
+  dc.beginPath();
+  dc.arc(cx, cy, R, 0, Math.PI * 2);
+  dc.fillStyle = '#00050a';
+  dc.fill();
+
+  // Outer ring
+  dc.beginPath();
+  dc.arc(cx, cy, R, 0, Math.PI * 2);
+  dc.strokeStyle = color + '44';
+  dc.lineWidth = 1.5;
+  dc.stroke();
+
+  // Tick marks
+  for (let deg = 0; deg < 360; deg += 10) {
+    const rad = (deg - 90) * Math.PI / 180;
+    const isMajor = deg % 90 === 0;
+    const isMid   = deg % 45 === 0;
+    const inner = R - (isMajor ? 14 : isMid ? 10 : 6);
+    dc.beginPath();
+    dc.moveTo(cx + Math.cos(rad) * inner, cy + Math.sin(rad) * inner);
+    dc.lineTo(cx + Math.cos(rad) * (R - 2), cy + Math.sin(rad) * (R - 2));
+    dc.strokeStyle = isMajor ? color + 'cc' : color + '44';
+    dc.lineWidth = isMajor ? 1.5 : 0.8;
+    dc.stroke();
+  }
+
+  // Cardinal letters
+  const cardinals = [['N', 0], ['E', 90], ['S', 180], ['W', 270]];
+  dc.font = `bold 13px "Share Tech Mono"`;
+  dc.textAlign = 'center';
+  dc.textBaseline = 'middle';
+  cardinals.forEach(([ltr, deg]) => {
+    const rad = (deg - 90) * Math.PI / 180;
+    const r = R - 22;
+    dc.fillStyle = ltr === 'N' ? color : color + '99';
+    dc.fillText(ltr, cx + Math.cos(rad) * r, cy + Math.sin(rad) * r);
+  });
+
+  // Needle
+  const needleRad = (heading - 90) * Math.PI / 180;
+  dc.beginPath();
+  dc.moveTo(cx, cy);
+  dc.lineTo(cx + Math.cos(needleRad) * (R - 18), cy + Math.sin(needleRad) * (R - 18));
+  dc.strokeStyle = color;
+  dc.lineWidth = 2.5;
+  dc.lineCap = 'round';
+  dc.stroke();
+
+  // Center dot
+  dc.beginPath();
+  dc.arc(cx, cy, 3, 0, Math.PI * 2);
+  dc.fillStyle = color;
+  dc.fill();
+}
+
+function makeDial(canvasEl, getVal, setVal, displayEl, color, affectsAA) {
+  let dragging = false;
+  let lastAngle = null;
+
+  function angleFromEvent(e) {
+    const rect = canvasEl.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const dx = clientX - (rect.left + rect.width / 2);
+    const dy = clientY - (rect.top  + rect.height / 2);
+    return Math.atan2(dy, dx) * 180 / Math.PI + 90;
+  }
+
+  function onStart(e) { dragging = true; lastAngle = angleFromEvent(e); e.preventDefault(); }
+
+  function onMove(e) {
+    if (!dragging) return;
+    const angle = angleFromEvent(e);
+    let delta = angle - lastAngle;
+    if (delta > 180)  delta -= 360;
+    if (delta < -180) delta += 360;
+    lastAngle = angle;
+    const newVal = ((getVal() + delta) % 360 + 360) % 360;
+    setVal(Math.round(newVal));
+    displayEl.textContent = Math.round(getVal()) + '°';
+    drawDial(canvasEl, getVal(), color);
+    if (affectsAA) computeAA();
+    draw();
+    e.preventDefault();
+  }
+
+  function onEnd() { dragging = false; lastAngle = null; }
+
+  canvasEl.addEventListener('mousedown',  onStart);
+  canvasEl.addEventListener('touchstart', onStart, { passive: false });
+  window.addEventListener('mousemove',  onMove);
+  window.addEventListener('touchmove',  onMove, { passive: false });
+  window.addEventListener('mouseup',    onEnd);
+  window.addEventListener('touchend',   onEnd);
+}
+
+const myPosSlider = document.getElementById('myPosSlider');
+myPosSlider.addEventListener('input', () => {
+  myPos = parseInt(myPosSlider.value);
+  myPosSlider.style.setProperty('--pct', ((myPos + 300) / 600 * 100).toFixed(1) + '%');
+  computeAA();
+  draw();
+});
+
+const banditPosSlider = document.getElementById('banditPosSlider');
+banditPosSlider.addEventListener('input', () => {
+  banditPos = parseInt(banditPosSlider.value);
+  banditPosSlider.style.setProperty('--pct', ((banditPos + 300) / 600 * 100).toFixed(1) + '%');
+  computeAA();
+  draw();
+});
+
+const pitchDisplay = document.getElementById('pitchDisplay');
+pitchSlider.addEventListener('input', () => {
+  currentPitch = -parseInt(pitchSlider.value);
+  pitchDisplay.textContent = (currentPitch >= 0 ? '+' : '') + currentPitch + '°';
+  draw();
+});
+
+function resizeTopCanvas() {
+  const w = topCanvas.offsetWidth;
+  const h = topCanvas.offsetHeight;
+  topCanvas.width  = w * window.devicePixelRatio;
+  topCanvas.height = h * window.devicePixelRatio;
+  tctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+}
+
+// Flat 2D top-down plan view.
+// Ownship: bottom-center, pointing straight up. Fixed.
+// Bandit:  upper-center, fixed position. Rotates based on aspect angle.
+// 0° AA: bandit nose points away (up). 90° AA: bandit sideways. 180° AA: head-on.
+function drawTopDown(angle, side, myPos) {
+  const W = topCanvas.width  / window.devicePixelRatio;
+  const H = topCanvas.height / window.devicePixelRatio;
+
+  tctx.clearRect(0, 0, W, H);
+  tctx.fillStyle = '#00050a';
+  tctx.fillRect(0, 0, W, H);
+
+  // Subtle grid
+  tctx.strokeStyle = '#00ff8808';
+  tctx.lineWidth = 1;
+  for (let x = 0; x < W; x += 40) { tctx.beginPath(); tctx.moveTo(x,0); tctx.lineTo(x,H); tctx.stroke(); }
+  for (let y = 0; y < H; y += 40) { tctx.beginPath(); tctx.moveTo(0,y); tctx.lineTo(W,y); tctx.stroke(); }
+
+  const sideSign = side === 'R' ? 1 : -1;
+  const rad = currentAngle * Math.PI / 180;
+  const sc = Math.min(W, H) * 0.10;
+
+  const myCX  = W * 0.50 + (myPos     / 300) * W * 0.44;
+  const myCY  = H * 0.82 - (myYPos    / 100) * H * 0.30;
+  const banCX = W * 0.50 + (banditPos / 300) * W * 0.44;
+  const banCY = H * 0.22 + (banditYPos / 100) * H * 0.30;
+
+  // Bandit rotation is driven purely by banditHeading slider
+  const banditRot = banditHeading * Math.PI / 180;
+
+  // ── Helper: draw flat top-down jet. Nose points UP in local coords. ──
+  function drawJet(color, fill) {
+    tctx.beginPath();
+    tctx.moveTo(0, -sc * 0.55);
+    tctx.lineTo( sc * 0.10, -sc * 0.20);
+    tctx.lineTo( sc * 0.10,  sc * 0.42);
+    tctx.lineTo(-sc * 0.10,  sc * 0.42);
+    tctx.lineTo(-sc * 0.10, -sc * 0.20);
+    tctx.closePath();
+    tctx.fillStyle = fill; tctx.fill();
+    tctx.strokeStyle = color; tctx.lineWidth = 1.8; tctx.stroke();
+
+    // Left wing
+    tctx.beginPath();
+    tctx.moveTo(-sc * 0.10,  sc * 0.05);
+    tctx.lineTo(-sc * 0.68,  sc * 0.26);
+    tctx.lineTo(-sc * 0.10,  sc * 0.36);
+    tctx.closePath();
+    tctx.fillStyle = fill; tctx.fill();
+    tctx.strokeStyle = color; tctx.lineWidth = 1.8; tctx.stroke();
+
+    // Right wing
+    tctx.beginPath();
+    tctx.moveTo( sc * 0.10,  sc * 0.05);
+    tctx.lineTo( sc * 0.68,  sc * 0.26);
+    tctx.lineTo( sc * 0.10,  sc * 0.36);
+    tctx.closePath();
+    tctx.fillStyle = fill; tctx.fill();
+    tctx.strokeStyle = color; tctx.lineWidth = 1.8; tctx.stroke();
+  }
+
+  const extLen = sc * 3.0;
+  const arrowSize = 8;
+
+  // ── OWNSHIP — rotates by myHeading ──
+  tctx.save();
+  tctx.translate(myCX, myCY);
+  tctx.rotate(myHeading * Math.PI / 180);
+  drawJet('#44aaff', '#001a2a');
+  tctx.restore();
+
+  tctx.font = '12px "Share Tech Mono"';
+  tctx.fillStyle = '#44aaff88';
+  tctx.textAlign = 'center';
+  tctx.fillText('OWNSHIP', myCX, myCY + sc * 0.72);
+
+  // ── BLUE DASHED HEADING LINE for ownship ──
+  const myRot = myHeading * Math.PI / 180;
+  const myNoseVX =  Math.sin(myRot);
+  const myNoseVY = -Math.cos(myRot);
+  const myTailVX = -myNoseVX;
+  const myTailVY = -myNoseVY;
+
+  tctx.beginPath();
+  tctx.moveTo(myCX + myTailVX * extLen, myCY + myTailVY * extLen);
+  tctx.lineTo(myCX + myNoseVX * extLen, myCY + myNoseVY * extLen);
+  tctx.strokeStyle = '#4488ffcc';
+  tctx.lineWidth = 2;
+  tctx.setLineDash([8, 5]);
+  tctx.stroke();
+  tctx.setLineDash([]);
+
+  // Arrowhead at ownship nose
+  const myArrowAngle = Math.atan2(myNoseVY, myNoseVX);
+  const myArrowTipX = myCX + myNoseVX * extLen;
+  const myArrowTipY = myCY + myNoseVY * extLen;
+  tctx.beginPath();
+  tctx.moveTo(myArrowTipX, myArrowTipY);
+  tctx.lineTo(myArrowTipX - arrowSize * Math.cos(myArrowAngle - 0.4), myArrowTipY - arrowSize * Math.sin(myArrowAngle - 0.4));
+  tctx.lineTo(myArrowTipX - arrowSize * Math.cos(myArrowAngle + 0.4), myArrowTipY - arrowSize * Math.sin(myArrowAngle + 0.4));
+  tctx.closePath();
+  tctx.fillStyle = '#4488ffcc';
+  tctx.fill();
+
+  // ── RED DASHED LINE — bandit heading vector ──
+  const noseVX =  Math.sin(banditRot);
+  const noseVY = -Math.cos(banditRot);
+  const tailVX = -noseVX;
+  const tailVY = -noseVY;
+
+  tctx.beginPath();
+  tctx.moveTo(banCX + tailVX * extLen, banCY + tailVY * extLen);
+  tctx.lineTo(banCX + noseVX * extLen, banCY + noseVY * extLen);
+  tctx.strokeStyle = '#ff3333cc';
+  tctx.lineWidth = 2;
+  tctx.setLineDash([8, 5]);
+  tctx.stroke();
+  tctx.setLineDash([]);
+
+  // Arrowhead at nose end
+  const arrowAngle = Math.atan2(noseVY, noseVX);
+  const arrowTipX = banCX + noseVX * extLen;
+  const arrowTipY = banCY + noseVY * extLen;
+  tctx.beginPath();
+  tctx.moveTo(arrowTipX, arrowTipY);
+  tctx.lineTo(arrowTipX - arrowSize * Math.cos(arrowAngle - 0.4), arrowTipY - arrowSize * Math.sin(arrowAngle - 0.4));
+  tctx.lineTo(arrowTipX - arrowSize * Math.cos(arrowAngle + 0.4), arrowTipY - arrowSize * Math.sin(arrowAngle + 0.4));
+  tctx.closePath();
+  tctx.fillStyle = '#ff3333cc';
+  tctx.fill();
+
+  // ── BANDIT — rotates in place ──
+  tctx.save();
+  tctx.translate(banCX, banCY);
+  tctx.rotate(banditRot);
+  drawJet('#00ff88', '#001f0e');
+  tctx.restore();
+
+  tctx.font = '12px "Share Tech Mono"';
+  tctx.fillStyle = '#00ff8888';
+  tctx.textAlign = 'center';
+  tctx.fillText('BANDIT', banCX, banCY - sc * 0.82);
+
+  // ── BLUE DASHED LOS LINE — center to center ──
+  const losStartX = myCX;
+  const losStartY = myCY;
+  const losEndX   = banCX;
+  const losEndY   = banCY;
+
+  tctx.beginPath();
+  tctx.moveTo(losStartX, losStartY);
+  tctx.lineTo(losEndX, losEndY);
+  tctx.strokeStyle = '#4488ffbb';
+  tctx.lineWidth = 1.8;
+  tctx.setLineDash([8, 5]);
+  tctx.stroke();
+  tctx.setLineDash([]);
+
+  // ── AA LABEL — single source of truth from computeAA() ──
+  const losDX = losStartX - banCX;
+  const losDY = losStartY - banCY;
+  const losLen      = Math.sqrt(losDX * losDX + losDY * losDY) || 1;
+  const tailAngle   = Math.atan2(tailVY, tailVX);
+  const losFromBandit = Math.atan2(losDY, losDX);
+
+  const losMidX = (losStartX + losEndX) / 2;
+  const losMidY = (losStartY + losEndY) / 2;
+  const perpX   = -losDY / losLen;
+  const perpY   =  losDX / losLen;
+  const labelSign  = side === 'R' ? 1 : -1;
+  const labelOffset = 16;
+  const labelX = losMidX + labelSign * perpX * labelOffset;
+  const labelY = losMidY + labelSign * perpY * labelOffset;
+
+  tctx.font = 'bold 15px "Share Tech Mono"';
+  tctx.textAlign = labelSign > 0 ? 'left' : 'right';
+
+  // Radar (green) label
+  tctx.fillStyle = '#00ff88';
+  tctx.fillText(`${fmt(currentAngle)}${side}`, labelX, labelY);
+
+  tctx.textAlign = 'left';
+
+  // ── ARC — from tail-line to LOS ──
+  const arcR = sc * 1.9;
+  const ccw  = side === 'L';
+
+  tctx.beginPath();
+  tctx.moveTo(banCX, banCY);
+  tctx.arc(banCX, banCY, arcR, tailAngle, losFromBandit, ccw);
+  tctx.closePath();
+  tctx.fillStyle = 'rgba(68,136,255,0.07)';
+  tctx.fill();
+
+  tctx.beginPath();
+  tctx.arc(banCX, banCY, arcR, tailAngle, losFromBandit, ccw);
+  tctx.strokeStyle = '#4488ffaa';
+  tctx.lineWidth = 2;
+  tctx.stroke();
+}
+
+function resizeCanvas() {
+  const w = canvas.offsetWidth;
+  const h = canvas.offsetHeight;
+  canvas.width = w * window.devicePixelRatio;
+  canvas.height = h * window.devicePixelRatio;
+  ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+  resizeTopCanvas();
+  draw();
+}
+
+// Draw a clean fighter silhouette from cockpit perspective
+// angle: 0 = dead 6 (tailpipe), 90 = pure beam, 180 = head-on
+// side: 'L' or 'R'
+//
+// APPROACH: Think of the jet as a 3D object rotated around its vertical axis.
+// We project 3D points onto the 2D canvas using simple orthographic projection
+// with perspective foreshortening on the depth (fore-aft) axis.
+//
+// Jet local coords: X = lateral (right wing positive), Y = vertical (up positive),
+// Z = longitudinal (nose positive, tail negative). Origin = center of aircraft.
+//
+// aspect 0°  → we look along +Z axis (from behind, see tail)
+// aspect 90° → we look along +X or -X axis (beam view)
+// aspect 180°→ we look along -Z axis (head-on, see nose)
+//
+// Rotation: bandit yaws by `angle` degrees relative to us.
+// For side='L', bandit's left side faces us as angle grows.
+// For side='R', bandit's right side faces us.
+
+function drawBandit(cx, cy, signedAngle, scale, pitch) {
+  const GREEN = '#00ff88';
+  const LINE  = 1.8;
+
+  const rad      = signedAngle * Math.PI / 180;
+  const pitchRad = (pitch || 0) * Math.PI / 180;
+
+  const cosA = Math.cos(rad);
+  const sinA = Math.sin(rad);
+  const cosP = Math.cos(pitchRad);
+  const sinP = Math.sin(pitchRad);
+  const rearOcclude = Math.max(0, Math.sin(pitchRad));
+  const pitchUpDeg = Math.max(0, pitch || 0);
+  const over24T = Math.min(1, Math.max(0, pitchUpDeg - 24) / 30);
+
+  function proj(lx, ly, lz) {
+    // Apply pitch in aircraft-local frame first (nose up = +pitch),
+    // then yaw for heading/aspect.
+    const py  =  ly * cosP + lz * sinP;
+    const pz  = -ly * sinP + lz * cosP;
+    const yx  =  lx * cosA + pz * sinA;
+    return [cx + yx * scale, cy - py * scale];
+  }
+
+  function depth(lx, ly, lz) {
+    const pz = -ly * sinP + lz * cosP;
+    // Depth in yawed frame for painter's ordering.
+    return -lx * sinA + pz * cosA;
+  }
+
+  ctx.save();
+  ctx.lineJoin = 'round';
+  ctx.lineCap  = 'round';
+
+  // ── WINGS (swept, 4-point quad) ──────────────────────────────────────────
+  function drawWing(xSign) {
+    const pts = [
+      proj(xSign * 0.10,  0,  0.15),
+      proj(xSign * 0.92,  0, -0.20),
+      proj(xSign * 0.92,  0, -0.33),
+      proj(xSign * 0.10,  0, -0.40),
+    ];
+    ctx.beginPath();
+    ctx.moveTo(pts[0][0], pts[0][1]);
+    pts.forEach(p => ctx.lineTo(p[0], p[1]));
+    ctx.closePath();
+    const wg = ctx.createLinearGradient(pts[0][0], pts[0][1], pts[1][0], pts[1][1]);
+    wg.addColorStop(0, '#003a1a');
+    wg.addColorStop(1, '#000e06');
+    ctx.fillStyle = wg;
+    ctx.fill();
+    ctx.strokeStyle = GREEN;
+    ctx.lineWidth = LINE;
+    ctx.stroke();
+    // Wing root accent
+    ctx.beginPath();
+    ctx.moveTo(pts[0][0], pts[0][1]);
+    ctx.lineTo(pts[3][0], pts[3][1]);
+    ctx.strokeStyle = '#00ff8850';
+    ctx.lineWidth = 0.8;
+    ctx.stroke();
+  }
+  drawWing(-1);
+  drawWing( 1);
+
+  // ── HORIZONTAL STABILIZERS (rear element — only visible from rear/beam) ───
+  function drawStab(xSign) {
+    const pts = [
+      proj(xSign * 0.10,  0, -0.28),
+      proj(xSign * 0.45,  0, -0.48),
+      proj(xSign * 0.10,  0, -0.56),
+    ];
+    ctx.beginPath();
+    ctx.moveTo(pts[0][0], pts[0][1]);
+    pts.forEach(p => ctx.lineTo(p[0], p[1]));
+    ctx.closePath();
+    ctx.fillStyle = '#001e0e';
+    ctx.fill();
+    ctx.strokeStyle = '#00ff8870';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+  }
+  const stabOrder = [-1, 1]
+    .map(xSign => ({ xSign, d: depth(xSign * 0.22, 0, -0.44) }))
+    .sort((a, b) => b.d - a.d);
+  stabOrder.forEach(({ xSign }) => drawStab(xSign));
+
+  // ── TWIN VERTICAL TAILS ──────────────────────────────────────────────────
+  // Draw before fuselage so body geometry can occlude stabs correctly.
+  function drawVTail(xSign) {
+    const span = 0.19;
+    // Keep fin roots fully connected at low pitch, then trim progressively
+    // only after pitch-up passes the visual threshold.
+    const trimStartDeg = 23;
+    const trimT = Math.min(1, Math.max(0, pitchUpDeg - trimStartDeg) / 30);
+    const trimFront = 0.34 * trimT;
+    const trimRear  = 0.32 * trimT;
+    const rootYFront = 0.06 + trimFront;
+    const rootYRear  = 0.06 + trimRear;
+    const [rfx, rfy] = proj(xSign*span, rootYFront, -0.22);
+    const [rax, ray] = proj(xSign*span, rootYRear,  -0.57);
+    const [tpx, tpy] = proj(xSign*span, 0.50, -0.38);
+    ctx.beginPath();
+    ctx.moveTo(rfx, rfy); ctx.lineTo(tpx, tpy); ctx.lineTo(rax, ray);
+    ctx.closePath();
+    ctx.fillStyle = '#001d0e';
+    ctx.fill();
+    ctx.strokeStyle = GREEN;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    // Leading edge accent
+    ctx.beginPath(); ctx.moveTo(rfx, rfy); ctx.lineTo(tpx, tpy);
+    ctx.strokeStyle = '#00ff8860'; ctx.lineWidth = 0.8; ctx.stroke();
+  }
+  const vTailOrder = [-1, 1]
+    .map(xSign => ({ xSign, d: depth(xSign * 0.19, 0.25, -0.38) }))
+    .sort((a, b) => b.d - a.d);
+  vTailOrder.forEach(({ xSign }) => drawVTail(xSign));
+
+  // ── FUSELAGE ──────────────────────────────────────────────────────────────
+  const fuseLen = 0.58;
+  const bodyW   = 0.058;
+
+  const [rTN, rTNy] = proj( bodyW,  0.09,  fuseLen * 0.86);
+  const [rBN, rBNy] = proj( bodyW, -0.06,  fuseLen * 0.86);
+  const [rTT, rTTy] = proj( bodyW,  0.06, -fuseLen);
+  const [rBT, rBTy] = proj( bodyW, -0.05, -fuseLen);
+  const [lTN, lTNy] = proj(-bodyW,  0.09,  fuseLen * 0.86);
+  const [lBN, lBNy] = proj(-bodyW, -0.06,  fuseLen * 0.86);
+  const [lTT, lTTy] = proj(-bodyW,  0.06, -fuseLen);
+  const [lBT, lBTy] = proj(-bodyW, -0.05, -fuseLen);
+
+  ctx.beginPath();
+  ctx.moveTo(rTN, rTNy); ctx.lineTo(lTN, lTNy);
+  ctx.lineTo(lTT, lTTy); ctx.lineTo(lBT, lBTy);
+  ctx.lineTo(rBT, rBTy); ctx.lineTo(rBN, rBNy);
+  ctx.closePath();
+  const fg = ctx.createLinearGradient(rTN, rTNy, rBT, rBTy);
+  fg.addColorStop(0,   '#003018');
+  fg.addColorStop(0.5, '#001c0c');
+  fg.addColorStop(1,   '#000a04');
+  ctx.fillStyle = fg;
+  ctx.fill();
+  ctx.strokeStyle = GREEN;
+  ctx.lineWidth = LINE;
+  ctx.stroke();
+
+  // Nose cone — elongated ogive with curved sides
+  const [nTipX, nTipY] = proj(0,  0.00, fuseLen * 1.55);  // sharp tip, far forward
+  const [nCtlRX, nCtlRY] = proj( bodyW * 0.5,  0.055, fuseLen * 1.18); // right control point
+  const [nCtlLX, nCtlLY] = proj(-bodyW * 0.5,  0.055, fuseLen * 1.18); // left  control point
+  const [nBotRX, nBotRY] = proj( bodyW * 0.3, -0.04,  fuseLen * 1.18); // underside right
+  const [nBotLX, nBotLY] = proj(-bodyW * 0.3, -0.04,  fuseLen * 1.18); // underside left
+
+  // Top ogive curve: fuselage nose → curved → tip
+  ctx.beginPath();
+  ctx.moveTo(rTN, rTNy);
+  ctx.quadraticCurveTo(nCtlRX, nCtlRY, nTipX, nTipY);
+  ctx.quadraticCurveTo(nCtlLX, nCtlLY, lTN, lTNy);
+  ctx.closePath();
+  const ncg = ctx.createLinearGradient(rTN, rTNy, nTipX, nTipY);
+  ncg.addColorStop(0,   '#003a1c');
+  ncg.addColorStop(0.6, '#002410');
+  ncg.addColorStop(1,   '#000e06');
+  ctx.fillStyle = ncg;
+  ctx.fill();
+  ctx.strokeStyle = GREEN;
+  ctx.lineWidth = LINE;
+  ctx.stroke();
+
+  // Bottom underside fairing: fuselage → tip
+  ctx.beginPath();
+  ctx.moveTo(rBN, rBNy);
+  ctx.quadraticCurveTo(nBotRX, nBotRY, nTipX, nTipY);
+  ctx.quadraticCurveTo(nBotLX, nBotLY, lBN, lBNy);
+  ctx.closePath();
+  ctx.fillStyle = '#001a0a';
+  ctx.fill();
+  ctx.strokeStyle = '#00ff8866';
+  ctx.lineWidth = 0.9;
+  ctx.stroke();
+
+  // ── CANOPY ────────────────────────────────────────────────────────────────
+  const canopy = [
+    proj(0,  0.09,  0.40),
+    proj(0,  0.20,  0.30),
+    proj(0,  0.23,  0.16),
+    proj(0,  0.18,  0.02),
+    proj(0,  0.09, -0.08),
+  ];
+  ctx.beginPath();
+  ctx.moveTo(canopy[0][0], canopy[0][1]);
+  canopy.forEach(p => ctx.lineTo(p[0], p[1]));
+  ctx.closePath();
+  const cg = ctx.createLinearGradient(canopy[2][0], canopy[2][1], canopy[0][0], canopy[0][1]);
+  cg.addColorStop(0,   '#003e22');
+  cg.addColorStop(0.5, '#001e10');
+  cg.addColorStop(1,   '#000c06');
+  ctx.fillStyle = cg;
+  ctx.fill();
+  ctx.strokeStyle = '#00ff88aa';
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+  // Canopy glint
+  const [g1x, g1y] = proj(0, 0.21, 0.28);
+  const [g2x, g2y] = proj(0, 0.20, 0.15);
+  ctx.beginPath(); ctx.moveTo(g1x, g1y); ctx.lineTo(g2x, g2y);
+  ctx.strokeStyle = '#aaffdd55'; ctx.lineWidth = 1.5; ctx.stroke();
+
+  // Hard occlusion over wing roots/aft fuselage when pitching up so
+  // vertical stabs do not show through wing surfaces.
+  if (rearOcclude > 0.04) {
+    const occWingHalf = 0.96 + over24T * 0.20;
+    const occWingMid  = 0.10 + over24T * 0.05;
+    const occWingAftZ = -0.24 - over24T * 0.20;
+    const occTailZ    = -0.54 - over24T * 0.16;
+    const wingRootOcc = [
+      proj(-occWingHalf, 0.00, occWingAftZ),
+      proj(-occWingMid,  0.00, -0.03),
+      proj( occWingMid,  0.00, -0.03),
+      proj( occWingHalf, 0.00, occWingAftZ),
+      proj( 0.16 + over24T * 0.05, 0.00, occTailZ),
+      proj(-0.16 - over24T * 0.05, 0.00, occTailZ),
+    ];
+    ctx.beginPath();
+    ctx.moveTo(wingRootOcc[0][0], wingRootOcc[0][1]);
+    wingRootOcc.forEach(p => ctx.lineTo(p[0], p[1]));
+    ctx.closePath();
+    ctx.fillStyle = `rgba(0, 20, 10, ${0.30 + rearOcclude * 0.42 + over24T * 0.18})`;
+    ctx.fill();
+  }
+
+  // Pitch-up occlusion pass: hide lower tail-root surfaces that would be
+  // blocked by the aft fuselage from this viewpoint.
+  if (rearOcclude > 0.04) {
+    const occWide = 2.15 + over24T * 0.35;
+    const occRear = 1.85 + over24T * 0.30;
+    const occ = [
+      proj(-bodyW * occWide, -0.05, -0.18 - over24T * 0.10),
+      proj( bodyW * occWide, -0.05, -0.18 - over24T * 0.10),
+      proj( bodyW * occRear,  0.16 + over24T * 0.05, -0.90 - over24T * 0.12),
+      proj(-bodyW * occRear,  0.16 + over24T * 0.05, -0.90 - over24T * 0.12),
+    ];
+    ctx.beginPath();
+    ctx.moveTo(occ[0][0], occ[0][1]);
+    occ.forEach(p => ctx.lineTo(p[0], p[1]));
+    ctx.closePath();
+    ctx.fillStyle = `rgba(0, 22, 10, ${0.42 + rearOcclude * 0.48 + over24T * 0.16})`;
+    ctx.fill();
+    ctx.strokeStyle = `rgba(0, 255, 136, ${0.20 + rearOcclude * 0.30 + over24T * 0.12})`;
+    ctx.lineWidth = 1.1;
+    ctx.stroke();
+  }
+
+  // ── TWIN ENGINE EXHAUSTS ──────────────────────────────────────────────────
+  const exhaustVis = Math.max(0, cosA) * (1 - rearOcclude * 0.9);
+  [-0.14, 0.14].forEach(xOff => {
+    const [ncx, ncy] = proj(xOff, -0.02, -fuseLen);
+    if (exhaustVis > 0.04) {
+      const r = scale * 0.052 * exhaustVis;
+      const eg = ctx.createRadialGradient(ncx, ncy, 0, ncx, ncy, r * 2.2);
+      eg.addColorStop(0,   `rgba(255,230, 80, ${0.95 * exhaustVis})`);
+      eg.addColorStop(0.3, `rgba(255,100,  0, ${0.70 * exhaustVis})`);
+      eg.addColorStop(0.7, `rgba(255, 30,  0, ${0.30 * exhaustVis})`);
+      eg.addColorStop(1,   'transparent');
+      ctx.beginPath();
+      ctx.arc(ncx, ncy, r * 2.2, 0, Math.PI * 2);
+      ctx.fillStyle = eg;
+      ctx.fill();
+      // Nozzle rim
+      ctx.beginPath();
+      ctx.arc(ncx, ncy, r * 0.65, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(0,255,136,${exhaustVis * 0.9})`;
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+    }
+    if (exhaustVis > 0.05) {
+      const [neL] = [proj(xOff - 0.055, -0.02, -fuseLen)];
+      const [neR] = [proj(xOff + 0.055, -0.02, -fuseLen)];
+      ctx.beginPath();
+      ctx.moveTo(neL[0], neL[1]); ctx.lineTo(neR[0], neR[1]);
+      ctx.strokeStyle = `rgba(0,255,136,${exhaustVis * 0.5})`; ctx.lineWidth = 1.5; ctx.stroke();
+    }
+  });
+
+  // Cockpit cue: red dashed line showing nose direction (tail -> nose),
+  // matching the top-down directional reference.
+  const [tailX, tailY] = proj(0, -0.01, -fuseLen * 1.02);
+  const [noseX, noseY] = proj(0,  0.00,  fuseLen * 1.55);
+  ctx.beginPath();
+  ctx.moveTo(tailX, tailY);
+  ctx.lineTo(noseX, noseY);
+  ctx.strokeStyle = '#ff3333cc';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([8, 5]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  const arrowSize = 8;
+  const arrowAngle = Math.atan2(noseY - tailY, noseX - tailX);
+  ctx.beginPath();
+  ctx.moveTo(noseX, noseY);
+  ctx.lineTo(noseX - arrowSize * Math.cos(arrowAngle - 0.4), noseY - arrowSize * Math.sin(arrowAngle - 0.4));
+  ctx.lineTo(noseX - arrowSize * Math.cos(arrowAngle + 0.4), noseY - arrowSize * Math.sin(arrowAngle + 0.4));
+  ctx.closePath();
+  ctx.fillStyle = '#ff3333cc';
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawHUD(angle, pitch, heading) {
+  const W = canvas.width / window.devicePixelRatio;
+  const H = canvas.height / window.devicePixelRatio;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Pitch offset: each degree of pitch shifts horizon by this many pixels
+  const pitchPxPerDeg = H * 0.008;
+  const horizonY = H * 0.50 + pitch * pitchPxPerDeg;
+
+  // ── SKY ──────────────────────────────────────────────────────────────────
+  const skyBottom = Math.max(0, Math.min(horizonY, H));
+  if (skyBottom > 0) {
+    const sg = ctx.createLinearGradient(0, 0, 0, skyBottom);
+    sg.addColorStop(0,   '#000510');
+    sg.addColorStop(0.7, '#000d18');
+    sg.addColorStop(1,   '#001208');
+    ctx.fillStyle = sg;
+    ctx.fillRect(0, 0, W, skyBottom);
+  }
+
+  // Stars
+  const stars = [
+    [0.08,0.06],[0.22,0.04],[0.38,0.10],[0.55,0.03],[0.70,0.08],[0.84,0.06],[0.93,0.12],
+    [0.15,0.19],[0.31,0.23],[0.50,0.16],[0.66,0.22],[0.80,0.15],[0.92,0.27],
+    [0.10,0.31],[0.28,0.35],[0.44,0.29],[0.62,0.36],[0.77,0.28],[0.90,0.38],
+  ];
+  stars.forEach(([sx, sy]) => {
+    const sy2 = sy * H;
+    if (sy2 < horizonY - 2) {
+      ctx.globalAlpha = 0.55;
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(sx * W, sy2, 0.9, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  });
+  ctx.globalAlpha = 1;
+
+  // ── GROUND ───────────────────────────────────────────────────────────────
+  if (horizonY < H) {
+    const gy = Math.max(0, horizonY);
+    const gg = ctx.createLinearGradient(0, gy, 0, H);
+    gg.addColorStop(0,   '#041400');
+    gg.addColorStop(0.5, '#021000');
+    gg.addColorStop(1,   '#010600');
+    ctx.fillStyle = gg;
+    ctx.fillRect(0, gy, W, H - gy);
+
+    // Ground grid
+    ctx.strokeStyle = '#00ff8810';
+    ctx.lineWidth = 0.5;
+    for (let i = 1; i <= 5; i++) {
+      const ly = gy + (H - gy) * i / 6;
+      ctx.beginPath(); ctx.moveTo(0, ly); ctx.lineTo(W, ly); ctx.stroke();
+    }
+    const vx = W * 0.5;
+    for (let i = -4; i <= 4; i++) {
+      ctx.beginPath(); ctx.moveTo(vx, gy); ctx.lineTo(vx + i * W * 0.28, H); ctx.stroke();
+    }
+  }
+
+  // ── HORIZON LINE ─────────────────────────────────────────────────────────
+  if (horizonY > 2 && horizonY < H - 2) {
+    // Atmospheric glow
+    const hg = ctx.createLinearGradient(0, horizonY - 10, 0, horizonY + 10);
+    hg.addColorStop(0,   'transparent');
+    hg.addColorStop(0.5, '#00ff8822');
+    hg.addColorStop(1,   'transparent');
+    ctx.fillStyle = hg;
+    ctx.fillRect(0, horizonY - 10, W, 20);
+
+    ctx.beginPath(); ctx.moveTo(0, horizonY); ctx.lineTo(W, horizonY);
+    ctx.strokeStyle = '#00ff8866'; ctx.lineWidth = 1; ctx.stroke();
+
+    // Horizon labels
+    ctx.fillStyle = '#00ff8855'; ctx.font = '9px "Share Tech Mono"'; ctx.textAlign = 'left';
+    ctx.fillText('HDG ' + Math.round(myHeading) + '°', W * 0.03, horizonY - 4);
+  }
+
+  // ── PITCH LADDER ─────────────────────────────────────────────────────────
+  ctx.save();
+  for (let deg = -60; deg <= 60; deg += 10) {
+    if (deg === 0) continue;
+    const ly = horizonY - deg * pitchPxPerDeg;
+    if (ly < 12 || ly > H - 12) continue;
+    const lw  = deg % 20 === 0 ? W * 0.14 : W * 0.09;
+    const mid = W * 0.5;
+    const gap = W * 0.04;
+    ctx.lineWidth = deg % 20 === 0 ? 1.0 : 0.7;
+    ctx.strokeStyle = '#00ff8866';
+    ctx.setLineDash(deg < 0 ? [4, 3] : []);
+    ctx.beginPath(); ctx.moveTo(mid - lw, ly); ctx.lineTo(mid - gap, ly); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(mid + gap, ly); ctx.lineTo(mid + lw,  ly); ctx.stroke();
+    if (deg % 20 === 0) {
+      ctx.fillStyle = '#00ff8877'; ctx.font = '9px "Share Tech Mono"';
+      ctx.textAlign = 'right'; ctx.fillText(deg, mid - gap - 4, ly + 4);
+      ctx.textAlign = 'left';  ctx.fillText(deg, mid + gap + 4, ly + 4);
+    }
+  }
+  ctx.setLineDash([]);
+  ctx.restore();
+
+  // ── BANDIT SILHOUETTE ─────────────────────────────────────────────────────
+  const banditCX = W * 0.5;
+  const banditCY = H * 0.40;
+  const scale = Math.min(W, H) * 0.26;
+  const cockpitAspect = getBanditAspectFromHeading();
+  // Invert sign to keep cockpit yaw direction aligned with heading convention.
+  drawBandit(banditCX, banditCY, -cockpitAspect.signedDeg, scale, pitch);
+
+  // ── TARGETING RETICLE ────────────────────────────────────────────────────
+  const boxSize = scale * 0.88;
+  const bx = banditCX - boxSize;
+  const by = banditCY - boxSize * 0.58;
+  const bw = boxSize * 2;
+  const bh = boxSize * 1.08;
+  const cs = 12;
+  const reticleColor = angle > 160 ? '#ff4444' : angle > 120 ? '#ffaa00' : '#00ff88';
+  ctx.strokeStyle = reticleColor + '99';
+  ctx.lineWidth = 1.2;
+  [[bx,by],[bx+bw,by],[bx,by+bh],[bx+bw,by+bh]].forEach(([x,y],i) => {
+    const sx = i%2===0?1:-1, sy = i<2?1:-1;
+    ctx.beginPath();
+    ctx.moveTo(x, y+sy*cs); ctx.lineTo(x,y); ctx.lineTo(x+sx*cs,y);
+    ctx.stroke();
+  });
+  // Center cross
+  ctx.strokeStyle = reticleColor + '44'; ctx.lineWidth = 0.5;
+  ctx.beginPath(); ctx.moveTo(banditCX-cs*0.5, banditCY); ctx.lineTo(banditCX+cs*0.5, banditCY); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(banditCX, banditCY-cs*0.5); ctx.lineTo(banditCX, banditCY+cs*0.5); ctx.stroke();
+
+  // ── SPEED TAPE (left) ────────────────────────────────────────────────────
+  const tapeX  = W * 0.072;
+  const tapeCY = H * 0.50;
+  const tapeH  = H * 0.38;
+  const spd    = 480;
+
+  ctx.fillStyle = '#00000044';
+  ctx.fillRect(tapeX - 30, tapeCY - tapeH/2, 30, tapeH);
+  ctx.strokeStyle = '#00ff8830'; ctx.lineWidth = 0.8;
+  ctx.strokeRect(tapeX - 30, tapeCY - tapeH/2, 30, tapeH);
+  for (let i = -4; i <= 4; i++) {
+    const ty = tapeCY + i * tapeH / 8;
+    ctx.fillStyle = '#00ff8866'; ctx.font = '9px "Share Tech Mono"'; ctx.textAlign = 'right';
+    ctx.fillText(spd - i * 20, tapeX - 3, ty + 3);
+    ctx.beginPath(); ctx.moveTo(tapeX - 32, ty); ctx.lineTo(tapeX - 30, ty);
+    ctx.strokeStyle = '#00ff8844'; ctx.lineWidth = 0.7; ctx.stroke();
+  }
+  ctx.fillStyle = '#00ff88cc'; ctx.font = 'bold 10px "Share Tech Mono"'; ctx.textAlign = 'center';
+  ctx.fillText('KTS', tapeX - 15, tapeCY - tapeH/2 - 7);
+  ctx.fillStyle = '#00ff8820';
+  ctx.fillRect(tapeX - 32, tapeCY - 9, 32, 18);
+  ctx.strokeStyle = '#00ff8899'; ctx.lineWidth = 0.8;
+  ctx.strokeRect(tapeX - 32, tapeCY - 9, 32, 18);
+  ctx.fillStyle = '#00ff88'; ctx.font = 'bold 11px "Share Tech Mono"'; ctx.textAlign = 'center';
+  ctx.fillText(spd, tapeX - 16, tapeCY + 4);
+
+  // ── ALTITUDE TAPE (right) ────────────────────────────────────────────────
+  const altX = W * 0.928;
+  const alt  = 6000;
+
+  ctx.fillStyle = '#00000044';
+  ctx.fillRect(altX, tapeCY - tapeH/2, 30, tapeH);
+  ctx.strokeStyle = '#00ff8830'; ctx.lineWidth = 0.8;
+  ctx.strokeRect(altX, tapeCY - tapeH/2, 30, tapeH);
+  for (let i = -4; i <= 4; i++) {
+    const ty = tapeCY + i * tapeH / 8;
+    ctx.fillStyle = '#00ff8866'; ctx.font = '9px "Share Tech Mono"'; ctx.textAlign = 'left';
+    ctx.fillText(alt - i * 500, altX + 3, ty + 3);
+    ctx.beginPath(); ctx.moveTo(altX + 30, ty); ctx.lineTo(altX + 32, ty);
+    ctx.strokeStyle = '#00ff8844'; ctx.lineWidth = 0.7; ctx.stroke();
+  }
+  ctx.fillStyle = '#00ff88cc'; ctx.font = 'bold 10px "Share Tech Mono"'; ctx.textAlign = 'center';
+  ctx.fillText('FT', altX + 15, tapeCY - tapeH/2 - 7);
+  ctx.fillStyle = '#00ff8820';
+  ctx.fillRect(altX, tapeCY - 9, 32, 18);
+  ctx.strokeStyle = '#00ff8899'; ctx.lineWidth = 0.8;
+  ctx.strokeRect(altX, tapeCY - 9, 32, 18);
+  ctx.fillStyle = '#00ff88'; ctx.font = 'bold 11px "Share Tech Mono"'; ctx.textAlign = 'center';
+  ctx.fillText(alt, altX + 16, tapeCY + 4);
+
+  // ── HEADING TAPE (top) ────────────────────────────────────────────────────
+  const htY  = H * 0.055;
+  const htW  = W * 0.44;
+  const htX  = W * 0.5 - htW / 2;
+  ctx.fillStyle = '#00000055';
+  ctx.fillRect(htX, htY - 13, htW, 26);
+  ctx.strokeStyle = '#00ff8833'; ctx.lineWidth = 0.8;
+  ctx.strokeRect(htX, htY - 13, htW, 26);
+  const hdg = Math.round(myHeading);
+  for (let i = -4; i <= 4; i++) {
+    const tickHdg = ((hdg + i * 10) % 360 + 360) % 360;
+    const tx = W * 0.5 + i * htW / 8;
+    ctx.beginPath(); ctx.moveTo(tx, htY - 11); ctx.lineTo(tx, htY - 5);
+    ctx.strokeStyle = '#00ff8866'; ctx.lineWidth = 0.8; ctx.stroke();
+    const lbl = tickHdg === 0 ? 'N' : tickHdg === 90 ? 'E' : tickHdg === 180 ? 'S' : tickHdg === 270 ? 'W' : String(tickHdg);
+    ctx.fillStyle = '#00ff8877'; ctx.font = '9px "Share Tech Mono"'; ctx.textAlign = 'center';
+    ctx.fillText(lbl, tx, htY + 9);
+  }
+  // Center tick
+  ctx.beginPath(); ctx.moveTo(W*0.5, htY+13); ctx.lineTo(W*0.5-5, htY+19); ctx.lineTo(W*0.5+5, htY+19); ctx.closePath();
+  ctx.fillStyle = '#00ff88aa'; ctx.fill();
+
+  // ── FLIGHT PATH MARKER ────────────────────────────────────────────────────
+  const fpmX = W * 0.5, fpmY = H * 0.5;
+  ctx.strokeStyle = '#00ff88cc'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(fpmX, fpmY, 7, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(fpmX - 7, fpmY); ctx.lineTo(fpmX - 18, fpmY);
+  ctx.moveTo(fpmX + 7, fpmY); ctx.lineTo(fpmX + 18, fpmY);
+  ctx.moveTo(fpmX, fpmY - 7); ctx.lineTo(fpmX, fpmY - 15);
+  ctx.stroke();
+
+  // ── AA ARC INDICATOR (bottom left) ───────────────────────────────────────
+  const arcCX = W * 0.12, arcCY = H * 0.83, arcR = H * 0.09;
+  ctx.fillStyle = '#00000044';
+  ctx.beginPath(); ctx.arc(arcCX, arcCY, arcR + 10, Math.PI, 0, false); ctx.fill();
+
+  ctx.beginPath(); ctx.arc(arcCX, arcCY, arcR, Math.PI, 0, false);
+  ctx.strokeStyle = '#00ff8820'; ctx.lineWidth = 1; ctx.stroke();
+
+  const arcAngle = Math.PI - (angle / 180) * Math.PI;
+  ctx.beginPath(); ctx.moveTo(arcCX, arcCY);
+  ctx.arc(arcCX, arcCY, arcR, Math.PI, arcAngle, false);
+  ctx.closePath();
+  const arcFill = angle > 160 ? 'rgba(255,50,50,0.14)' : angle > 90 ? 'rgba(255,150,0,0.10)' : 'rgba(0,255,136,0.08)';
+  ctx.fillStyle = arcFill; ctx.fill();
+
+  const arcStroke = angle > 160 ? '#ff4444cc' : angle > 90 ? '#ffaa00cc' : '#00ff88cc';
+  ctx.beginPath(); ctx.arc(arcCX, arcCY, arcR, Math.PI, arcAngle, false);
+  ctx.strokeStyle = arcStroke; ctx.lineWidth = 2; ctx.stroke();
+
+  const dotAngle = arcAngle;
+  const dotX = arcCX + arcR * Math.cos(dotAngle);
+  const dotY = arcCY + arcR * Math.sin(dotAngle);
+  ctx.beginPath(); ctx.arc(dotX, dotY, 3.5, 0, Math.PI * 2);
+  ctx.fillStyle = arcStroke; ctx.fill();
+
+  ctx.fillStyle = '#00ff8877'; ctx.font = '10px "Share Tech Mono"'; ctx.textAlign = 'center';
+  ctx.fillText('AA', arcCX, arcCY + arcR + 15);
+  ctx.fillStyle = '#00ff8855'; ctx.font = '9px "Share Tech Mono"';
+  ctx.textAlign = 'right'; ctx.fillText('0°', arcCX - arcR - 3, arcCY + 5);
+  ctx.textAlign = 'left';  ctx.fillText('180°', arcCX + arcR + 2, arcCY + 5);
+
+  // ── READOUTS ─────────────────────────────────────────────────────────────
+  ctx.textAlign = 'left';
+  ctx.font = 'bold 14px "Share Tech Mono"';
+  ctx.fillStyle = '#00ff88ee';
+  ctx.fillText(`AA  ${fmt(angle)}${side}`, W * 0.05, H * 0.14);
+
+  const status = angle < 20  ? 'STERN  CONVERSION' :
+                 angle < 60  ? 'LOW  ASPECT' :
+                 angle < 120 ? 'BEAM  ASPECT' :
+                 angle < 160 ? 'HIGH  ASPECT' : 'HEAD-ON  MERGE';
+  ctx.fillStyle = angle > 160 ? '#ff6644cc' : angle > 120 ? '#ffaa44cc' : '#00ff88aa';
+  ctx.font = '12px "Share Tech Mono"';
+  ctx.fillText(status, W * 0.05, H * 0.20);
+
+  updateInfo(angle);
+}
+
+function updateInfo(angle) {
+  const cockpitAspect = getBanditAspectFromHeading();
+  const cockpitSignedYaw = -cockpitAspect.signedDeg;
+
+  let text = '';
+  if (angle <= 10) {
+    text = `<span class="label">ZERO ASPECT (${fmt(angle)}${side})</span>`;
+  } else if (angle <= 45) {
+    text = `<span class="label">LOW ASPECT (${fmt(angle)}${side})</span>`;
+  } else if (angle <= 75) {
+    text = `<span class="label">MODERATE ASPECT (${fmt(angle)}${side})</span>`;
+  } else if (angle <= 105) {
+    text = `<span class="label">BEAM ASPECT (${fmt(angle)}${side})</span>`;
+  } else if (angle <= 150) {
+    text = `<span class="label">HIGH ASPECT (${fmt(angle)}${side})</span>`;
+  } else {
+    text = `<span class="label">HEAD-ON / MERGE (${fmt(angle)}${side})</span>`;
+  }
+
+  const debug = `BHDG ${Math.round(banditHeading)}° | CYAW ${cockpitSignedYaw.toFixed(1)}° | AA ${currentAngle}° ${side} | PITCH ${currentPitch >= 0 ? '+' : ''}${currentPitch}°`;
+  text += `<br><span style="color:#44aaffcc; font-size:0.82rem; letter-spacing:0.04em;">${debug}</span>`;
+
+  infoBox.innerHTML = text;
+}
+
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+pitchSlider.style.setProperty('--pct', '50%');
+myPosSlider.style.setProperty('--pct', '50%');
+banditPosSlider.style.setProperty('--pct', '50%');
+
+// Init compass dials
+const banditDialEl = document.getElementById('banditDial');
+const myDialEl     = document.getElementById('myDial');
+
+makeDial(banditDialEl,
+  () => banditHeading, v => { banditHeading = v; },
+  document.getElementById('headingDisplay'), '#00ff88', true);
+
+makeDial(myDialEl,
+  () => myHeading, v => { myHeading = v; },
+  document.getElementById('myHeadingDisplay'), '#44aaff', false);
+
+drawDial(banditDialEl, banditHeading, '#00ff88');
+drawDial(myDialEl,     myHeading,     '#44aaff');
+computeAA();
+draw();
+
+function draw() {
+  drawHUD(currentAngle, currentPitch, banditHeading);
+  drawTopDown(currentAngle, side, myPos);
+}
+</script>
+</body>
+</html>
