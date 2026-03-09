@@ -325,21 +325,28 @@ let currentAngle = 0;
 let side = 'L';
 
 function getBanditOwnshipGeometry() {
-  const banX =  banditPos / 300 * 0.88;
-  const banY = -0.60 + (banditYPos / 100) * 0.35;
-  const myX  =  myPos   / 300 * 0.88;
-  const myY  =  0.0    + (myYPos   / 100) * 0.35;
+  // Use the exact pixel geometry used by top-down rendering.
+  // If the canvas is not perfectly square, this keeps AA math visually true.
+  const dpr = window.devicePixelRatio || 1;
+  const W = Math.max(1, (topCanvas.width  || topCanvas.offsetWidth)  / dpr);
+  const H = Math.max(1, (topCanvas.height || topCanvas.offsetHeight) / dpr);
+
+  const banX = W * 0.50 + (banditPos  / 300) * W * 0.44;
+  const banY = H * 0.22 + (banditYPos / 100) * H * 0.30;
+  const myX  = W * 0.50 + (myPos      / 300) * W * 0.44;
+  const myY  = H * 0.82 - (myYPos     / 100) * H * 0.30;
   return { banX, banY, myX, myY };
 }
 
 function getBanditAspectFromHeading() {
   const { banX, banY, myX, myY } = getBanditOwnshipGeometry();
 
-  // LOS from bandit to ownship in the same 2D frame used by top-down.
+  // LOS from bandit to ownship in the same y-down 2D frame used by top-down.
   const losDX = myX - banX;
   const losDY = myY - banY;
 
-  // Tail vector from heading (0 = north, 90 = east in canvas coords).
+  // Heading basis in canvas coordinates (x right, y down):
+  // nose = (sin(h), -cos(h)), tail is opposite.
   const headRad = banditHeading * Math.PI / 180;
   const tailVX  = -Math.sin(headRad);
   const tailVY  =  Math.cos(headRad);
@@ -538,8 +545,6 @@ function drawTopDown(angle, side, myPos) {
   for (let x = 0; x < W; x += 40) { tctx.beginPath(); tctx.moveTo(x,0); tctx.lineTo(x,H); tctx.stroke(); }
   for (let y = 0; y < H; y += 40) { tctx.beginPath(); tctx.moveTo(0,y); tctx.lineTo(W,y); tctx.stroke(); }
 
-  const sideSign = side === 'R' ? 1 : -1;
-  const rad = currentAngle * Math.PI / 180;
   const sc = Math.min(W, H) * 0.10;
 
   const myCX  = W * 0.50 + (myPos     / 300) * W * 0.44;
@@ -1482,7 +1487,7 @@ function updateInfo(angle) {
     text = `<span class="label">HEAD-ON / MERGE (${fmt(angle)}${side})</span>`;
   }
 
-  const debug = `RENDERER 2D | BHDG ${Math.round(banditHeading)}° | CYAW ${cockpitSignedYaw.toFixed(1)}° | AA ${currentAngle}° ${side} | PITCH ${currentPitch >= 0 ? '+' : ''}${currentPitch}° | BANK ${currentBank >= 0 ? '+' : ''}${currentBank}°`;
+  const debug = `RENDERER 2D | BHDG ${Math.round(banditHeading)}° | CYAW ${cockpitSignedYaw.toFixed(1)}° | AA ${currentAngle}° ${side} | EXACT ${cockpitAspect.angle.toFixed(2)}° | PITCH ${currentPitch >= 0 ? '+' : ''}${currentPitch}° | BANK ${currentBank >= 0 ? '+' : ''}${currentBank}°`;
   text += `<br><span style="color:#44aaffcc; font-size:0.82rem; letter-spacing:0.04em;">${debug}</span>`;
 
   infoBox.innerHTML = text;
@@ -1498,6 +1503,7 @@ banditPosSlider.style.setProperty('--pct', '50%');
 // Init compass dials
 const banditDialEl = document.getElementById('banditDial');
 const myDialEl     = document.getElementById('myDial');
+const banditHeadingDisplayEl = document.getElementById('headingDisplay');
 
 makeDial(banditDialEl,
   () => banditHeading, v => { banditHeading = v; },
@@ -1511,6 +1517,71 @@ drawDial(banditDialEl, banditHeading, '#00ff88');
 drawDial(myDialEl,     myHeading,     '#44aaff');
 computeAA();
 draw();
+
+function normalizeHeadingInput(value) {
+  if (!Number.isFinite(value)) return null;
+  if (value < 0 || value > 360) return null;
+  // Keep internal heading in [0, 359], while allowing user input of 360.
+  return value === 360 ? 0 : Math.round(value);
+}
+
+function applyBanditHeadingFromInput(rawValue) {
+  const parsed = normalizeHeadingInput(Number(rawValue));
+  if (parsed === null) return false;
+  banditHeading = parsed;
+  banditHeadingDisplayEl.textContent = Math.round(banditHeading) + '°';
+  drawDial(banditDialEl, banditHeading, '#00ff88');
+  computeAA();
+  draw();
+  return true;
+}
+
+banditHeadingDisplayEl.addEventListener('dblclick', () => {
+  const input = document.createElement('input');
+  input.type = 'number';
+  input.min = '0';
+  input.max = '360';
+  input.step = '1';
+  input.value = String(Math.round(banditHeading));
+  input.setAttribute('aria-label', 'Bandit heading degrees');
+  input.style.width = '88px';
+  input.style.textAlign = 'center';
+  input.style.fontFamily = 'Orbitron, sans-serif';
+  input.style.fontSize = '1.05rem';
+  input.style.fontWeight = '900';
+  input.style.color = '#00ff88';
+  input.style.background = '#00150b';
+  input.style.border = '1px solid #00ff88aa';
+  input.style.borderRadius = '2px';
+  input.style.outline = 'none';
+  input.style.boxShadow = '0 0 10px #00ff8844';
+
+  const prev = banditHeadingDisplayEl.textContent;
+  banditHeadingDisplayEl.textContent = '';
+  banditHeadingDisplayEl.appendChild(input);
+  input.focus();
+  input.select();
+
+  let finalized = false;
+  const finalize = (commit) => {
+    if (finalized) return;
+    finalized = true;
+    const ok = commit ? applyBanditHeadingFromInput(input.value.trim()) : true;
+    if (!ok) {
+      banditHeadingDisplayEl.textContent = prev;
+      return;
+    }
+    if (!commit) {
+      banditHeadingDisplayEl.textContent = Math.round(banditHeading) + '°';
+    }
+  };
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') finalize(true);
+    if (e.key === 'Escape') finalize(false);
+  });
+  input.addEventListener('blur', () => finalize(true));
+});
 
 function draw() {
   drawHUD(currentAngle, currentPitch, banditHeading);
