@@ -745,13 +745,17 @@ function drawBandit(cx, cy, signedAngle, scale, pitch) {
   ctx.lineCap  = 'round';
 
   // ── WINGS (swept, 4-point quad) ──────────────────────────────────────────
-  function drawWing(xSign) {
-    const pts = [
+  function wingPts(xSign) {
+    return [
       proj(xSign * 0.10,  0,  0.15),
       proj(xSign * 0.92,  0, -0.20),
       proj(xSign * 0.92,  0, -0.33),
       proj(xSign * 0.10,  0, -0.40),
     ];
+  }
+
+  function drawWing(xSign) {
+    const pts = wingPts(xSign);
     ctx.beginPath();
     ctx.moveTo(pts[0][0], pts[0][1]);
     pts.forEach(p => ctx.lineTo(p[0], p[1]));
@@ -799,7 +803,7 @@ function drawBandit(cx, cy, signedAngle, scale, pitch) {
 
   // ── TWIN VERTICAL TAILS ──────────────────────────────────────────────────
   // Draw before fuselage so body geometry can occlude stabs correctly.
-  function drawVTail(xSign) {
+  function vTailPts(xSign) {
     const span = 0.19;
     // Keep fin roots fully connected at low pitch, then trim progressively
     // only after pitch-up passes the visual threshold.
@@ -809,9 +813,18 @@ function drawBandit(cx, cy, signedAngle, scale, pitch) {
     const trimRear  = 0.32 * trimT;
     const rootYFront = 0.06 + trimFront;
     const rootYRear  = 0.06 + trimRear;
-    const [rfx, rfy] = proj(xSign*span, rootYFront, -0.22);
-    const [rax, ray] = proj(xSign*span, rootYRear,  -0.57);
-    const [tpx, tpy] = proj(xSign*span, 0.50, -0.38);
+    return [
+      proj(xSign*span, rootYFront, -0.22),
+      proj(xSign*span, 0.50, -0.38),
+      proj(xSign*span, rootYRear,  -0.57),
+    ];
+  }
+
+  function drawVTail(xSign) {
+    const pts = vTailPts(xSign);
+    const rfx = pts[0][0], rfy = pts[0][1];
+    const tpx = pts[1][0], tpy = pts[1][1];
+    const rax = pts[2][0], ray = pts[2][1];
     ctx.beginPath();
     ctx.moveTo(rfx, rfy); ctx.lineTo(tpx, tpy); ctx.lineTo(rax, ray);
     ctx.closePath();
@@ -918,6 +931,51 @@ function drawBandit(cx, cy, signedAngle, scale, pitch) {
   const [g2x, g2y] = proj(0, 0.20, 0.15);
   ctx.beginPath(); ctx.moveTo(g1x, g1y); ctx.lineTo(g2x, g2y);
   ctx.strokeStyle = '#aaffdd55'; ctx.lineWidth = 1.5; ctx.stroke();
+
+  // When pitched down and looking at rear-quarter aspects, the near wing
+  // should occlude canopy glass. Repaint near wing over canopy in that regime.
+  if (pitch < -6 && cosA > 0.15) {
+    const leftDepth = depth(-0.92, 0, -0.20);
+    const rightDepth = depth(0.92, 0, -0.20);
+    const nearWingSign = leftDepth < rightDepth ? -1 : 1;
+    const occPts = wingPts(nearWingSign);
+
+    ctx.beginPath();
+    ctx.moveTo(occPts[0][0], occPts[0][1]);
+    occPts.forEach(p => ctx.lineTo(p[0], p[1]));
+    ctx.closePath();
+    const occGrad = ctx.createLinearGradient(occPts[0][0], occPts[0][1], occPts[1][0], occPts[1][1]);
+    occGrad.addColorStop(0, '#002812');
+    occGrad.addColorStop(1, '#000a04');
+    ctx.fillStyle = occGrad;
+    ctx.fill();
+    ctx.strokeStyle = '#00ff8860';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+  }
+
+  // Same regime: near vertical stab should also occlude canopy when viewed
+  // from rear-quarter with pitch-down (e.g. headings in the 300s).
+  if (pitch < -6 && cosA > 0.15) {
+    const leftVDepth = depth(-0.19, 0.30, -0.38);
+    const rightVDepth = depth(0.19, 0.30, -0.38);
+    const nearVSign = leftVDepth < rightVDepth ? -1 : 1;
+    const vPts = vTailPts(nearVSign);
+
+    ctx.beginPath();
+    ctx.moveTo(vPts[0][0], vPts[0][1]);
+    ctx.lineTo(vPts[1][0], vPts[1][1]);
+    ctx.lineTo(vPts[2][0], vPts[2][1]);
+    ctx.closePath();
+    const vg = ctx.createLinearGradient(vPts[1][0], vPts[1][1], vPts[2][0], vPts[2][1]);
+    vg.addColorStop(0, '#002f16');
+    vg.addColorStop(1, '#000b05');
+    ctx.fillStyle = vg;
+    ctx.fill();
+    ctx.strokeStyle = '#00ff8880';
+    ctx.lineWidth = 1.25;
+    ctx.stroke();
+  }
 
   // Hard occlusion over wing roots/aft fuselage when pitching up so
   // vertical stabs do not show through wing surfaces.
@@ -1130,7 +1188,8 @@ function drawHUD(angle, pitch, heading) {
   const scale = Math.min(W, H) * 0.26;
   const cockpitAspect = getBanditAspectFromHeading();
   // Invert sign to keep cockpit yaw direction aligned with heading convention.
-  drawBandit(banditCX, banditCY, -cockpitAspect.signedDeg, scale, pitch);
+  const cockpitSignedYaw = -cockpitAspect.signedDeg;
+  drawBandit(banditCX, banditCY, cockpitSignedYaw, scale, pitch);
 
   // ── TARGETING RETICLE ────────────────────────────────────────────────────
   const boxSize = scale * 0.88;
@@ -1302,7 +1361,7 @@ function updateInfo(angle) {
     text = `<span class="label">HEAD-ON / MERGE (${fmt(angle)}${side})</span>`;
   }
 
-  const debug = `BHDG ${Math.round(banditHeading)}° | CYAW ${cockpitSignedYaw.toFixed(1)}° | AA ${currentAngle}° ${side} | PITCH ${currentPitch >= 0 ? '+' : ''}${currentPitch}°`;
+  const debug = `RENDERER 2D | BHDG ${Math.round(banditHeading)}° | CYAW ${cockpitSignedYaw.toFixed(1)}° | AA ${currentAngle}° ${side} | PITCH ${currentPitch >= 0 ? '+' : ''}${currentPitch}°`;
   text += `<br><span style="color:#44aaffcc; font-size:0.82rem; letter-spacing:0.04em;">${debug}</span>`;
 
   infoBox.innerHTML = text;
