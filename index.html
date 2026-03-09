@@ -369,7 +369,7 @@ function setSide(s) {
 
 // Display convention: divide by 10, drop trailing zero. 150→15, 40→4, 90→9
 function fmt(angle) {
-  const v = Math.round(angle / 10);
+  const v = Math.floor(angle / 10);
   return v === 0 ? '0' : String(v);
 }
 
