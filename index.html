@@ -888,6 +888,21 @@ function drawBandit(cx, cy, signedAngle, scale, pitch) {
     ctx.stroke();
   }
 
+  function drawVTailFrontLock(xSign) {
+    const pts = vTailPts(xSign);
+    ctx.beginPath();
+    ctx.moveTo(pts[0][0], pts[0][1]);
+    ctx.lineTo(pts[1][0], pts[1][1]);
+    ctx.lineTo(pts[2][0], pts[2][1]);
+    ctx.closePath();
+    // Opaque repaint to prevent rear stab edge bleed-through.
+    ctx.fillStyle = '#001b0d';
+    ctx.fill();
+    ctx.strokeStyle = '#00ff88';
+    ctx.lineWidth = 1.35;
+    ctx.stroke();
+  }
+
   function vTailRootBridgePts(xSign) {
     const v = vTailLocalPts(xSign);
     const rootYFront = v[0][1];
@@ -915,10 +930,13 @@ function drawBandit(cx, cy, signedAngle, scale, pitch) {
     ctx.lineWidth = 1.0;
     ctx.stroke();
   }
-  const vTailOrder = [-1, 1]
-    .map(xSign => ({ xSign, d: avgDepth(vTailLocalPts(xSign)) }))
-    .sort((a, b) => b.d - a.d);
-  vTailOrder.forEach(({ xSign }) => drawVTail(xSign));
+  // Side-based rule for vertical stabs:
+  // R aspect => left stab is near; L aspect => right stab is near.
+  const nearVSign = signedAngle < 0 ? -1 : 1;
+  const farVSign = -nearVSign;
+  drawVTail(farVSign);
+  drawVTail(nearVSign);
+  drawVTailFrontLock(nearVSign);
 
   // ── FUSELAGE ──────────────────────────────────────────────────────────────
   const fuseLen = 0.58;
@@ -1027,14 +1045,12 @@ function drawBandit(cx, cy, signedAngle, scale, pitch) {
   const canopyDepth = avgDepth(canopyLocalPts);
   const wingDepthL = avgDepth(wingLocalPts(-1));
   const wingDepthR = avgDepth(wingLocalPts(1));
-  const vDepthL = avgDepth(vTailLocalPts(-1));
-  const vDepthR = avgDepth(vTailLocalPts(1));
+  const nearVDepth = avgDepth(vTailLocalPts(nearVSign));
   const eps = 0.01;
 
   if (wingDepthL < canopyDepth - eps) drawWingOcclusion(-1);
   if (wingDepthR < canopyDepth - eps) drawWingOcclusion(1);
-  if (vDepthL < canopyDepth - eps) drawVTailOcclusion(-1);
-  if (vDepthR < canopyDepth - eps) drawVTailOcclusion(1);
+  if (nearVDepth < canopyDepth - eps) drawVTailOcclusion(nearVSign);
 
   // Hard occlusion over wing roots/aft fuselage when pitching up so
   // vertical stabs do not show through wing surfaces.
