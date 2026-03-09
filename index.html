@@ -320,7 +320,7 @@ function getBanditAspectFromHeading() {
   return {
     signedDeg,
     angle: Math.abs(signedDeg),
-    side: signedDeg >= 0 ? 'R' : 'L',
+    side: signedDeg >= 0 ? 'L' : 'R',
   };
 }
 
@@ -932,7 +932,8 @@ function drawBandit(cx, cy, signedAngle, scale, pitch) {
   }
   // Side-based rule for vertical stabs:
   // R aspect => left stab is near; L aspect => right stab is near.
-  const nearVSign = signedAngle < 0 ? -1 : 1;
+  const viewSide = signedAngle >= 0 ? 'L' : 'R';
+  const nearVSign = viewSide === 'R' ? -1 : 1;
   const farVSign = -nearVSign;
   drawVTail(farVSign);
   drawVTail(nearVSign);
