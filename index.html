@@ -92,6 +92,25 @@
     box-shadow: 0 0 12px #44aaffcc;
   }
 
+  /* Bank slider should match the native accent-style used by pitch control. */
+  #bankSlider {
+    -webkit-appearance: auto;
+    appearance: auto;
+    height: auto;
+    background: transparent;
+    outline: none;
+    accent-color: #00ff88;
+  }
+
+  #bankSlider::-webkit-slider-thumb {
+    -webkit-appearance: auto;
+    width: auto;
+    height: auto;
+    border-radius: 0;
+    background: initial;
+    box-shadow: none;
+  }
+
   .tick-row {
     display: flex;
     justify-content: space-between;
