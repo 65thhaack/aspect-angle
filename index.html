@@ -234,6 +234,17 @@
         <span class="angle-label" style="font-size:0.7rem;">PITCH</span>
       </div>
     </div>
+
+    <!-- Horizontal bank slider under cockpit view -->
+    <div style="display:flex; flex-direction:column; align-items:center; gap:4px; width:100%; padding:0 2px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; width:100%;">
+        <span style="font-size:0.72rem; color:#00ff88aa; letter-spacing:0.05em;">-60°</span>
+        <span id="bankDisplay" style="font-family:'Orbitron',sans-serif;font-size:0.85rem;font-weight:900;color:#00ff88;text-shadow:0 0 16px #00ff88cc;">0°</span>
+        <span style="font-size:0.72rem; color:#00ff88aa; letter-spacing:0.05em;">+60°</span>
+      </div>
+      <input type="range" id="bankSlider" min="-60" max="60" value="0" step="1" style="width:100%; accent-color:#00ff88;">
+      <span class="angle-label" style="font-size:0.7rem;">BANK</span>
+    </div>
   </div>
 
   <!-- CENTER COLUMN: Top-down canvas with horizontal position sliders -->
@@ -290,6 +301,7 @@ let myPos = 0;
 let myYPos = 0;         // ownship vertical offset -100 to +100
 let myHeading = 0;
 let currentPitch = 0;
+let currentBank = 0;
 let currentAngle = 0;
 let side = 'L';
 
@@ -466,9 +478,18 @@ banditPosSlider.addEventListener('input', () => {
 });
 
 const pitchDisplay = document.getElementById('pitchDisplay');
+const pitchSlider = document.getElementById('pitchSlider');
 pitchSlider.addEventListener('input', () => {
   currentPitch = -parseInt(pitchSlider.value);
   pitchDisplay.textContent = (currentPitch >= 0 ? '+' : '') + currentPitch + '°';
+  draw();
+});
+
+const bankDisplay = document.getElementById('bankDisplay');
+const bankSlider = document.getElementById('bankSlider');
+bankSlider.addEventListener('input', () => {
+  currentBank = parseInt(bankSlider.value);
+  bankDisplay.textContent = (currentBank >= 0 ? '+' : '') + currentBank + '°';
   draw();
 });
 
@@ -710,27 +731,32 @@ function resizeCanvas() {
 // For side='L', bandit's left side faces us as angle grows.
 // For side='R', bandit's right side faces us.
 
-function drawBandit(cx, cy, signedAngle, scale, pitch) {
+function drawBandit(cx, cy, signedAngle, scale, pitch, bank) {
   const GREEN = '#00ff88';
   const LINE  = 1.8;
 
   const rad      = signedAngle * Math.PI / 180;
   const pitchRad = (pitch || 0) * Math.PI / 180;
+  const bankRad  = (bank || 0) * Math.PI / 180;
 
   const cosA = Math.cos(rad);
   const sinA = Math.sin(rad);
   const cosP = Math.cos(pitchRad);
   const sinP = Math.sin(pitchRad);
+  const cosB = Math.cos(bankRad);
+  const sinB = Math.sin(bankRad);
   const rearOcclude = Math.max(0, Math.sin(pitchRad));
   const pitchUpDeg = Math.max(0, pitch || 0);
   const over24T = Math.min(1, Math.max(0, pitchUpDeg - 24) / 30);
 
   function proj(lx, ly, lz) {
-    // Apply pitch in aircraft-local frame first (nose up = +pitch),
-    // then yaw for heading/aspect.
-    const py  =  ly * cosP + lz * sinP;
-    const pz  = -ly * sinP + lz * cosP;
-    const yx  =  lx * cosA + pz * sinA;
+    // Apply roll in aircraft-local frame (bank about nose-tail axis),
+    // then apply pitch and yaw.
+    const bx  = lx * cosB - ly * sinB;
+    const by  = lx * sinB + ly * cosB;
+    const py  = by * cosP + lz * sinP;
+    const pz  = -by * sinP + lz * cosP;
+    const yx  =  bx * cosA + pz * sinA;
     return [cx + yx * scale, cy - py * scale];
   }
 
@@ -1265,7 +1291,7 @@ function drawHUD(angle, pitch, heading) {
   const cockpitAspect = getBanditAspectFromHeading();
   // Invert sign to keep cockpit yaw direction aligned with heading convention.
   const cockpitSignedYaw = -cockpitAspect.signedDeg;
-  drawBandit(banditCX, banditCY, cockpitSignedYaw, scale, pitch);
+  drawBandit(banditCX, banditCY, cockpitSignedYaw, scale, pitch, currentBank);
 
   // ── TARGETING RETICLE ────────────────────────────────────────────────────
   const boxSize = scale * 0.88;
@@ -1437,7 +1463,7 @@ function updateInfo(angle) {
     text = `<span class="label">HEAD-ON / MERGE (${fmt(angle)}${side})</span>`;
   }
 
-  const debug = `RENDERER 2D | BHDG ${Math.round(banditHeading)}° | CYAW ${cockpitSignedYaw.toFixed(1)}° | AA ${currentAngle}° ${side} | PITCH ${currentPitch >= 0 ? '+' : ''}${currentPitch}°`;
+  const debug = `RENDERER 2D | BHDG ${Math.round(banditHeading)}° | CYAW ${cockpitSignedYaw.toFixed(1)}° | AA ${currentAngle}° ${side} | PITCH ${currentPitch >= 0 ? '+' : ''}${currentPitch}° | BANK ${currentBank >= 0 ? '+' : ''}${currentBank}°`;
   text += `<br><span style="color:#44aaffcc; font-size:0.82rem; letter-spacing:0.04em;">${debug}</span>`;
 
   infoBox.innerHTML = text;
@@ -1446,6 +1472,7 @@ function updateInfo(angle) {
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 pitchSlider.style.setProperty('--pct', '50%');
+bankSlider.style.setProperty('--pct', '50%');
 myPosSlider.style.setProperty('--pct', '50%');
 banditPosSlider.style.setProperty('--pct', '50%');
 
